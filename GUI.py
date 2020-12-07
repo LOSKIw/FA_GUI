@@ -1,4 +1,5 @@
 import graphics as gp
+import pygraphviz as viz
 from tkinter import messagebox
 from tkinter import filedialog
 import math
@@ -236,7 +237,6 @@ class GUI():
     
     def reLine(self,pos,textIn):
         i = self.checkNearNode(pos,'get')
-        textIn = self.input.getText()
         if(self.LN1Idx == self.LN2Idx):
             nodeText = self.nodeText[self.LN2Idx].getText()
             if(nodeText in self.lineToSelfNode):
@@ -448,15 +448,15 @@ class GUI():
     def saveCsv(self):
         text = self.input.getText()
         finalList = []
-        colIndex = ['name','posx','posy','type']
+        colIndex = ['node','posx','posy','type']
         colIndex.extend(self.inputList)
         for node in self.dataDic:
             tempDic = {}
             for i in range(len(colIndex)):
                 if(i==0):
-                    tempDic[colIndex[i]] = node
+                    tempDic[colIndex[i]] = str(node)
                 else:
-                    tempDic[colIndex[i]] = self.dataDic[node][i-1]
+                    tempDic[colIndex[i]] = str(self.dataDic[node][i-1])
             finalList.append(tempDic)
         df = pd.DataFrame(finalList)
         df.to_csv(text+'.csv')
@@ -475,7 +475,8 @@ class GUI():
             i[0].undraw()
         self.lineText = []
         for i in self.lineToSelf:
-            i.undraw()
+            for j in i:
+                j.undraw()
         self.lineToSelf = []
         for i in self.lineToSelfText:
             i.undraw()
@@ -488,21 +489,23 @@ class GUI():
     def readCsv(self):
         Filepath = filedialog.askopenfilename()
         df = pd.read_csv(Filepath)
+        print(list(df.columns))
+        print(df.index)
         self.clearWin()
         nodeSort = []
         # 重现点
         for row in df.itertuples():
+            print(row)
             tempRow = dict(row._asdict())
-            nodeSort.append(str(tempRow['name']))
+            nodeSort.append(str(tempRow['node']))
             node = gp.Circle(gp.Point(tempRow['posx'],tempRow['posy']),15)
             node.draw(self.win)
             node.setOutline(self.nodeColor[self.nodeType.index(str(tempRow['type']))])
-            text = gp.Text(node.getCenter(),str(tempRow['name']))
+            text = gp.Text(node.getCenter(),str(tempRow['node']))
             text.draw(self.win)
             self.nodeList.append(node)
             self.nodeText.append(text)
-            self.dataDic[str(tempRow['name'])] = [tempRow['posx'],tempRow['posy'],tempRow['type']]
-        print(nodeSort)
+            self.dataDic[str(tempRow['node'])] = [tempRow['posx'],tempRow['posy'],tempRow['type']]
         # 重现线
         for row in df.itertuples():
             tempRow = dict(row._asdict())
@@ -512,19 +515,39 @@ class GUI():
             inputListT[i] = str(inputListT[i])
         for row in df.itertuples():
             tempRow = dict(row._asdict())
-            print(tempRow)
             for col in inputListT:
                 # if(tempRow[col]==tempRow[name]):
                 if(str(tempRow[col]) == 'None'):
                     continue
-                self.LineNode1 = self.nodeList[nodeSort.index(str(tempRow['name']))]
-                self.LN1Idx = nodeSort.index(str(tempRow['name']))
+                self.LineNode1 = self.nodeList[nodeSort.index(str(tempRow['node']))]
+                self.LN1Idx = nodeSort.index(str(tempRow['node']))
                 
                 self.LineNode2 = self.nodeList[nodeSort.index(str(tempRow[col]))]
                 self.LN2Idx = nodeSort.index(str(tempRow[col]))
                 self.reLine([self.LineNode1.getCenter().getX(),self.LineNode1.getCenter().getY()],col)
     
+    def createImg(self):
+        text = self.input.getText()
+        img = viz.AGraph(directed = True)
+        for i in self.dataDic:
+            img.add_node(i,color = self.nodeColor[self.nodeType.index(self.dataDic[i][2])])
+        for i in self.dataDic:
+            tempdic = {}
+            for j in range(3,len(self.dataDic[i])):
+                if(self.dataDic[i][j] == 'None'):
+                    continue
+                # if(self.dataDic[i][j] == i):
+                if(self.dataDic[i][j] in tempdic.keys()):
+                    tempdic[self.dataDic[i][j]] = tempdic[self.dataDic[i][j]]+','+self.inputList[j-3]
+                else:
+                    tempdic[self.dataDic[i][j]] = self.inputList[j-3]
+            for j in tempdic.keys():
+                img.add_edge(i,j,label = tempdic[j])
+        
+        img.layout('dot')
+        img.draw(text+'.png',format='png')
 
+    
     def clickAction(self,act,pos):
         if(act>=0 and act<=2):
             self.createNode(pos,act)
@@ -540,6 +563,8 @@ class GUI():
             self.saveCsv()
         elif(self.currentB == 6):
             self.readCsv()
+        elif(self.currentB == 8):
+            self.createImg()
 
     def run(self):
         self.getChosenButton(10)
