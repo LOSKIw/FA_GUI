@@ -56,8 +56,9 @@ class GUI():
         self.toolBack.setFill('grey')
         self.toolBack.draw(self.win)
         self.toolButtonPosList = [[5,95],[100,190],[195,285],[290,380],[385,475],[480,570],[575,665],[670,760],[765,875]]
-        self.toolButtonText = ['添加开始点','添加中间点','添加结束点','添加线','移动','删除','导入','保存','输出图']
+        self.toolButtonText = ['添加开始点','添加中间点','添加结束点','添加线','移动','删除','导入','保存','输出']
         self.toolButton = []
+        gp.Text(gp.Point(100,75),'请在绘制画布与输出文件时\n在右上文本框内输入值').draw(self.win)
         for i in range(len(self.toolButtonPosList)):
             self.toolButton.append(self.createToolButton(self.toolButtonPosList[i],self.toolButtonText[i]))
         
@@ -226,7 +227,10 @@ class GUI():
                     for node in self.dataDic.keys():
                         self.dataDic[node].append('None')
                 idx = self.inputList.index(text)
-                self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] = self.nodeText[self.LN2Idx].getText()
+                if(self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] != 'None'):
+                    self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] = self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3]+','+self.nodeText[self.LN2Idx].getText()
+                else:
+                    self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] = self.nodeText[self.LN2Idx].getText()
             self.LineNode1.setFill('white')
             self.LineNode2.setFill('white')
             self.LineNode1 = None
@@ -297,8 +301,12 @@ class GUI():
                 for node in self.dataDic.keys():
                     self.dataDic[node].append('None')
             idx = self.inputList.index(textIn)
-            tempASD = self.nodeText[self.LN2Idx].getText()
-            self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] = tempASD
+
+
+            if(self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] != 'None'):
+                    self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] = self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3]+','+self.nodeText[self.LN2Idx].getText()
+            else:
+                self.dataDic[self.nodeText[self.LN1Idx].getText()][idx+3] = self.nodeText[self.LN2Idx].getText()
         self.LineNode1.setFill('white')
         self.LineNode2.setFill('white')
         self.LineNode1 = None
@@ -365,7 +373,6 @@ class GUI():
                         continue
                     for j in range(len(self.lineText)):
                         if(self.lineText[j][1] == node and self.lineText[j][2] == text):
-                            print(self.lineText[j])
                             self.lineList[j].undraw()
                             for k in range(len(self.nodeText)):
                                 if(self.nodeText[k].getText()==node):
@@ -489,13 +496,10 @@ class GUI():
     def readCsv(self):
         Filepath = filedialog.askopenfilename()
         df = pd.read_csv(Filepath)
-        print(list(df.columns))
-        print(df.index)
         self.clearWin()
         nodeSort = []
         # 重现点
         for row in df.itertuples():
-            print(row)
             tempRow = dict(row._asdict())
             nodeSort.append(str(tempRow['node']))
             node = gp.Circle(gp.Point(tempRow['posx'],tempRow['posy']),15)
@@ -519,12 +523,14 @@ class GUI():
                 # if(tempRow[col]==tempRow[name]):
                 if(str(tempRow[col]) == 'None'):
                     continue
-                self.LineNode1 = self.nodeList[nodeSort.index(str(tempRow['node']))]
-                self.LN1Idx = nodeSort.index(str(tempRow['node']))
-                
-                self.LineNode2 = self.nodeList[nodeSort.index(str(tempRow[col]))]
-                self.LN2Idx = nodeSort.index(str(tempRow[col]))
-                self.reLine([self.LineNode1.getCenter().getX(),self.LineNode1.getCenter().getY()],col)
+                collist = str(tempRow[col]).split(',')
+                for coltemp in collist:
+                    self.LineNode1 = self.nodeList[nodeSort.index(str(tempRow['node']))]
+                    self.LN1Idx = nodeSort.index(str(tempRow['node']))
+                    
+                    self.LineNode2 = self.nodeList[nodeSort.index(coltemp)]
+                    self.LN2Idx = nodeSort.index(coltemp)
+                    self.reLine([self.LineNode1.getCenter().getX(),self.LineNode1.getCenter().getY()],col)
     
     def createImg(self):
         text = self.input.getText()
@@ -542,11 +548,25 @@ class GUI():
                 else:
                     tempdic[self.dataDic[i][j]] = self.inputList[j-3]
             for j in tempdic.keys():
-                img.add_edge(i,j,label = tempdic[j])
-        
+                tj=j.split(',')
+                for tempj in tj:
+                    img.add_edge(i,tempj,label = tempdic[j])
         img.layout('dot')
         img.draw(text+'.png',format='png')
-
+        finalList = []
+        colIndex = ['name','type']
+        colIndex.extend(self.inputList)
+        for node in self.dataDic:
+            tempDic = {}
+            for i in range(len(colIndex)):
+                if(i==0):
+                    tempDic[colIndex[i]] = str(node)
+                else:
+                    tempDic[colIndex[i]] = str(self.dataDic[node][i+1])
+            finalList.append(tempDic)
+        df = pd.DataFrame(finalList)
+        df.to_csv(text+'-matrix'+'.csv')
+        
     
     def clickAction(self,act,pos):
         if(act>=0 and act<=2):
